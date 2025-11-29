@@ -6,6 +6,12 @@ from langchain_huggingface.llms import HuggingFacePipeline
 import torch
 from transformers import AutoModelForCausalLM, pipeline, AutoTokenizer
 
+store = {}
+
+def get_session_history():
+    if session_id not in store:
+        store[session_id] = RunnableWithMessageHistory()
+    return store[session_id]
 
 # Loading (Hugging Face & LangChain)
 @st.cache_resource
@@ -138,3 +144,4 @@ if send_clicked and user_input.strip():
 
         except Exception as e:
             st.error(f"Error during LangChain execution: {e}")
+
