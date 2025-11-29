@@ -8,7 +8,7 @@ from transformers import AutoModelForCausalLM, pipeline, AutoTokenizer
 
 store = {}
 
-def get_session_history():
+def get_session_history(session_id: str):
     if session_id not in store:
         store[session_id] = RunnableWithMessageHistory()
     return store[session_id]
@@ -41,33 +41,29 @@ def load_llm_and_chain():
         top_p=0.95, #removes bottom 5% and only uses upper 95%
         return_full_text=False  # doesnt return prompt
     )
-
+    
     # pipeline
     llm = HuggingFacePipeline(pipeline=text_pipeline)
 
-    memory = ConversationBufferMemory(memory_key="history")
-
-    # prompt layout with history variable for memory.
-    template = """Explain concepts clearly, use simple examples, keep responses brief.
-
-        Conversation:
-        {history}
-        Human: {input}
-        AI:"""
-
-    layout = PromptTemplate(input_variables=["history", "input"], template=template)
-
-    # langChain conversation chain (LLM + Prompt + Memory)
-    conversation = ConversationChain(
-        prompt=layout,
-        llm=llm,
-        memory=memory,
-        verbose=False  # True shows prompt sent to llm
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "explain concepts clearly, use simple examples, keep responses brief."),
+            MessagesPlaceholder(variable_name="history"),
+            ("human", "{input}")
+        ]
     )
-
-    return conversation
-
-
+    
+    core_chain = prompt | llm
+    
+    dialogue = RunnableWithMessageHistory(
+        runnable=core_chain,
+        get_session_history=get_session_history,
+        input_messages_key="input",
+        history_messages_key="history",
+    )
+    
+    return dialogue
+    
 chain = load_llm_and_chain()
 
 # page layout and html
@@ -144,4 +140,5 @@ if send_clicked and user_input.strip():
 
         except Exception as e:
             st.error(f"Error during LangChain execution: {e}")
+
 
