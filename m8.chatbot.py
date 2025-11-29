@@ -1,7 +1,7 @@
 import streamlit as st
-from langchain_classic.chains.conversation.base import ConversationChain
-from langchain_classic.memory import ConversationBufferMemory
-from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate, MessagesPlaceholder
 from langchain_huggingface.llms import HuggingFacePipeline
 import torch
 from transformers import AutoModelForCausalLM, pipeline, AutoTokenizer
@@ -140,5 +140,6 @@ if send_clicked and user_input.strip():
 
         except Exception as e:
             st.error(f"Error during LangChain execution: {e}")
+
 
 
