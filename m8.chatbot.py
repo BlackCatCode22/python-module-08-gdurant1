@@ -4,17 +4,17 @@ from langchain_classic.memory import ConversationBufferMemory
 from langchain_core.prompts import PromptTemplate
 from langchain_huggingface.llms import HuggingFacePipeline
 import torch
-from transformers import BloomTokenizerFast, AutoModelForCausalLM, pipeline
+from transformers import AutoModelForCausalLM, pipeline, AutoTokenizer
 
 
 # Loading (Hugging Face & LangChain)
 @st.cache_resource
 def load_llm_and_chain():
 
-    model_name = "bloom-560m"
+    model_name = "bigscience/bloom-560m"
 
     # tokenizer and ai model
-    tokenizer = BloomTokenizerFast.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
