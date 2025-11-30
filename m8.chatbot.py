@@ -8,11 +8,6 @@ from transformers import AutoModelForCausalLM, pipeline, AutoTokenizer
 
 store = {}
 
-def get_session_history(session_id: str):
-    if session_id not in store:
-        store[session_id] = RunnableWithMessageHistory()
-    return store[session_id]
-
 # Loading (Hugging Face & LangChain)
 @st.cache_resource
 def load_llm_and_chain():
@@ -41,38 +36,46 @@ def load_llm_and_chain():
         top_p=0.95, #removes bottom 5% and only uses upper 95%
         return_full_text=False  # doesnt return prompt
     )
-    
+
     # pipeline
     llm = HuggingFacePipeline(pipeline=text_pipeline)
-
+    
+    human_template = f"{{question}}" #"{input}" & "input" in dialogue, if template removed
+    
+    #ai prompt
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", "explain concepts clearly, use simple examples, keep responses brief."),
             MessagesPlaceholder(variable_name="history"),
-            ("human", "{input}")
+            ("human", human_template)
         ]
     )
-    
+
     core_chain = prompt | llm
-    
-    dialogue = RunnableWithMessageHistory(
-        runnable=core_chain,
-        get_session_history=get_session_history,
-        input_messages_key="input",
+
+    def get_by_session_id(session_id: str):
+        if session_id not in store:
+            store[session_id] = RunnableWithMessageHistory()
+        return store[session_id]
+
+    chain_with_history = RunnableWithMessageHistory(
+        core_chain,
+        get_by_session_id,
+        input_messages_key="question",
         history_messages_key="history",
     )
-    
-    return dialogue
-    
-chain = load_llm_and_chain()
+
+    return chain_with_history
+
+chain = load_llm_and_chain
 
 # page layout and html
-st.set_page_config(page_title="Python chatbot", page_icon="")
+st.set_page_config(page_title="Python chatbot", page_icon="📎")
 
 st.markdown(
     """
     <div style="background-color:#f1f5c4; padding: 15px; border-radius: 10px;">
-        <h1 style="color:white; text-align: center;"> LangChain + Hugging Face Chatbot</h1>
+        <h1 style="color:#171714; text-align: center;"> LangChain + Hugging Face Chatbot</h1>
     </div>
     """,
     unsafe_allow_html=True #true vs false??
@@ -92,8 +95,8 @@ if "messages" not in st.session_state:
 for msg in st.session_state.display_messages:
     role = "👤 student" if msg["role"] == "user" else "📎 Bloom_AI"
 
-    # html for display
-    color = "#E0F7FA"
+
+    color = "#f1f5c4"
     st.markdown(
         f"""
         <div style="background-color: {color}; padding: 10px; border-radius: 5px; margin-bottom: 5px;">
@@ -120,7 +123,9 @@ with col2:
 
 # clear chat
 if clear_clicked:
-    chain.memory.clear()
+    if st.session_state.session_id in store: #added to clear history from store
+        del store[st.session_state.session_id]
+
     st.session_state.display_messages = []
     st.rerun()
 
@@ -140,6 +145,3 @@ if send_clicked and user_input.strip():
 
         except Exception as e:
             st.error(f"Error during LangChain execution: {e}")
-
-
-
