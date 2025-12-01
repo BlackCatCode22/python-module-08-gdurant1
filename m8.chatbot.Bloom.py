@@ -1,44 +1,43 @@
 import streamlit as st
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_huggingface.llms import HuggingFacePipeline
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 import uuid
 
 model_name = "bigscience/bloom-560m"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-
 model = AutoModelForCausalLM.from_pretrained(model_name)
 
 text_pipeline = pipeline(
     'text-generation',
     model=model,
     tokenizer=tokenizer,
-    return_full_text=False)
-
-llm = HuggingFacePipeline()
-
-user_template = f"{{question}}"
+    max_new_tokens=512,
+    do_sample=True,
+    return_full_text=False
+)
 
 prompt = ChatPromptTemplate.from_messages(
         [
-            ("system", "explain concepts clearly, use simple examples, keep responses brief."),
+            ("system", "Generate creative, thought-provoking conversations, or ideas that encourage"
+                       "discussion and exploration. make prompts short, engaging, for conversation"),
             MessagesPlaceholder(variable_name="history"),
-            ("human", user_template),
+            ("human", "{question}"),
         ]
     )
 
-core_chain = prompt | model
+core_chain = prompt | text_pipeline
 
 store = {}
 
 def get_session_id(session_id: str):
     if session_id not in store:
-        store[session_id] = uuid.uuid4().hex
+        from langchain_core.chat_history import InMemoryChatMessageHistory
+        store[session_id] = InMemoryChatMessageHistory()
     return store[session_id]
 
-chain_history = RunnableWithMessageHistory(
+chat_with_history = RunnableWithMessageHistory(
     core_chain,
     get_session_id,
     input_messages_key="question",
@@ -109,14 +108,13 @@ if clear_clicked:
 if send_clicked and user_input.strip():
     st.session_state.display_messages.append({"role": "user", "content": user_input})
 
-    with st.spinner("Bloom_AI is thinking..."):
+    with st.spinner("Bigscience/560m is thinking..."):
         try:
-            response = core_chain.invoke(
+            response = chat_with_history.invoke(
                 {"question": user_input},
                 config={"configurable": {"session_id": st.session_state.session_id}}
             )
             assistant_reply = response
-
             st.session_state.display_messages.append(
                 {"role": "assistant", "content": assistant_reply}
             )
